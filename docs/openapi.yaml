@@ -1,0 +1,238 @@
+openapi: 3.0.3
+info:
+  title: Calculator API
+  version: 1.0.0
+  description: |
+    REST API for the calculator. It performs basic arithmetic (add, subtract,
+    multiply, divide), plus power, square root and percent.
+
+    Every response, success or error, is JSON (`application/json`).
+    Numbers are 64-bit floating point (`float64`), so some results may carry
+    small rounding errors, such as `0.1 + 0.2 = 0.30000000000000004`.
+
+    To try the calls from Swagger UI, use the server `http://localhost:8080`
+    with the backend running.
+servers:
+  - url: http://localhost:8080
+    description: Local backend (go run ./cmd/server)
+tags:
+  - name: Health
+    description: Check that the service is up.
+  - name: Operations
+    description: Arithmetic calculations.
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Check that the service is up
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is available.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+              example:
+                status: ok
+
+  /api/operations/{op}:
+    post:
+      tags: [Operations]
+      summary: Run an arithmetic operation
+      description: |
+        Use `op` to pick the operation. Binary operations (`add`, `subtract`,
+        `multiply`, `divide`, `power`) need both `a` and `b`. Unary operations
+        (`sqrt`, `percent`) need only `a`; sending `b` returns a `400` error.
+
+        Any other `op` value returns `404`.
+      operationId: calculate
+      parameters:
+        - name: op
+          in: path
+          required: true
+          description: Operation name.
+          schema:
+            type: string
+            enum: [add, subtract, multiply, divide, power, sqrt, percent]
+          example: add
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/BinaryOperands'
+                - $ref: '#/components/schemas/UnaryOperands'
+            examples:
+              add:
+                summary: Add (binary)
+                value: {a: 2, b: 3}
+              divide:
+                summary: Divide (binary)
+                value: {a: 10, b: 4}
+              power:
+                summary: Power (binary)
+                value: {a: 2, b: 10}
+              sqrt:
+                summary: Square root (unary)
+                value: {a: 9}
+              percent:
+                summary: Percent (unary)
+                value: {a: 50}
+      responses:
+        '200':
+          description: Operation completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+              examples:
+                add:
+                  summary: Add
+                  value: {operation: add, a: 2, b: 3, result: 5}
+                divide:
+                  summary: Divide
+                  value: {operation: divide, a: 10, b: 4, result: 2.5}
+                power:
+                  summary: Power
+                  value: {operation: power, a: 2, b: 10, result: 1024}
+                sqrt:
+                  summary: Square root (no b field)
+                  value: {operation: sqrt, a: 9, result: 3}
+                percent:
+                  summary: Percent (no b field)
+                  value: {operation: percent, a: 50, result: 0.5}
+        '400':
+          description: |
+            Input error: division by zero, square root of a negative number, invalid
+            JSON, a missing required field, or an unknown field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                divisionByZero:
+                  summary: Division by zero
+                  value: {error: 'division by zero'}
+                negativeSquareRoot:
+                  summary: Square root of a negative number
+                  value: {error: 'square root of negative number'}
+                missingField:
+                  summary: Missing field b
+                  value: {error: "field 'b' is required"}
+                invalidJson:
+                  summary: Malformed JSON
+                  value: {error: 'invalid JSON body: unexpected EOF'}
+                unknownField:
+                  summary: Field b sent to a unary operation
+                  value: {error: 'invalid JSON body: json: unknown field "b"'}
+                trailingData:
+                  summary: Extra data after the JSON object
+                  value: {error: 'invalid JSON body: unexpected data after the object'}
+        '404':
+          description: Unknown operation. Only happens when `op` is not in the accepted list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unknown operation
+        '405':
+          description: Method other than POST. The response is the server's plain-text default, not JSON.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Method Not Allowed
+        '422':
+          description: |
+            Valid input, but the result is not a real number or does not fit in a `float64`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                notReal:
+                  summary: Negative base with a fractional exponent
+                  value: {error: 'result is not a real number'}
+                outOfRange:
+                  summary: Infinite result (overflow, or 0 raised to a negative power)
+                  value: {error: 'result is out of the numeric range'}
+        '500':
+          description: Unexpected server failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: internal error
+
+components:
+  schemas:
+    BinaryOperands:
+      type: object
+      description: Body for binary operations.
+      required: [a, b]
+      additionalProperties: false
+      properties:
+        a:
+          type: number
+          format: double
+          description: First operand.
+          example: 2
+        b:
+          type: number
+          format: double
+          description: Second operand.
+          example: 3
+
+    UnaryOperands:
+      type: object
+      description: Body for unary operations. The `b` field is not accepted.
+      required: [a]
+      additionalProperties: false
+      properties:
+        a:
+          type: number
+          format: double
+          description: Operand.
+          example: 9
+
+    OperationResult:
+      type: object
+      description: |
+        Success response. `b` only appears for binary operations.
+      required: [operation, a, result]
+      properties:
+        operation:
+          type: string
+          enum: [add, subtract, multiply, divide, power, sqrt, percent]
+          example: add
+        a:
+          type: number
+          format: double
+          example: 2
+        b:
+          type: number
+          format: double
+          example: 3
+        result:
+          type: number
+          format: double
+          example: 5
+
+    ErrorResponse:
+      type: object
+      description: Format of every error response.
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: 'division by zero'

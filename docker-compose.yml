@@ -1,0 +1,16 @@
+# Runs the full stack: React frontend (nginx) + Go backend.
+#   docker compose up --build
+# Frontend: http://localhost:3000
+# Backend API and Swagger UI: http://localhost:8080/swagger
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend

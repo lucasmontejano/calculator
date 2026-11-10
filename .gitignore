@@ -1,0 +1,19 @@
+# Dependencies and build output
+frontend/node_modules/
+frontend/dist/
+backend/bin/
+
+# Test artifacts. The HTML reports in docs/coverage/ are committed on purpose.
+frontend/coverage/
+backend/coverage.out
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

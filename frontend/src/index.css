@@ -1,0 +1,28 @@
+:root {
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light dark;
+}
+
+/* #root is the grid item that holds the app; giving it the full width lets
+   percentage widths inside the calculator resolve against the viewport. */
+#root {
+  width: 100%;
+  min-width: 0;
+}
+
+body {
+  margin: 0;
+  padding: 1rem;
+  box-sizing: border-box;
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* lets the calculator shrink instead of overflowing */
+  place-items: center;
+  background: #f3f3f3;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #101010;
+  }
+}
